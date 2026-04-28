@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>🌿 Western MA Dispensaries</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;color:#e8e8e8;padding:1rem}
+  .header{display:flex;align-items:center;gap:10px;margin-bottom:1.1rem}
+  h1{font-size:21px;font-weight:600;color:#fff}
+  .subtitle{font-size:13px;color:#888;margin-top:2px}
+  .stats{display:flex;gap:8px;margin-bottom:.9rem;flex-wrap:wrap}
+  .stat{background:#1a1d27;border:0.5px solid #2a2d3a;border-radius:10px;padding:6px 12px;font-size:12px;color:#888}
+  .stat b{color:#e8e8e8;font-weight:500}
+  .controls{display:flex;gap:8px;margin-bottom:.9rem;align-items:center;flex-wrap:wrap}
+  .tab-btn{padding:5px 14px;border-radius:20px;border:0.5px solid #2a2d3a;background:transparent;cursor:pointer;font-size:13px;color:#888;transition:all .15s}
+  .tab-btn.active{background:#1d9e75;border-color:#1d9e75;color:#fff;font-weight:500}
+  .search{flex:1;min-width:150px;max-width:240px;padding:6px 13px;border-radius:20px;border:0.5px solid #2a2d3a;background:#1a1d27;color:#e8e8e8;font-size:13px}
+  .search::placeholder{color:#555}
+  .filters{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:.9rem}
+  .fp{padding:3px 10px;border-radius:20px;border:0.5px solid #2a2d3a;background:transparent;cursor:pointer;font-size:11px;color:#888;transition:all .15s}
+  .fp.active{background:#1a3d2e;border-color:#1d9e75;color:#4dcc9a;font-weight:500}
+  .cnt{font-size:12px;color:#555}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+  .card{background:#1a1d27;border:0.5px solid #2a2d3a;border-radius:12px;padding:.9rem 1rem;transition:border-color .15s}
+  .card:hover{border-color:#3a3d4a}
+  .ctop{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}
+  .cname{font-size:13px;font-weight:500;color:#fff;line-height:1.3}
+  .rat{display:flex;align-items:center;gap:2px;font-size:11px;color:#888;white-space:nowrap;flex-shrink:0;margin-left:5px}
+  .st{color:#ef9f27;font-size:9px}
+  .badges{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px}
+  .tag{font-size:10px;padding:2px 7px;border-radius:10px;background:#1a3d2e;color:#4dcc9a;font-weight:500}
+  .tag-d{background:#1a2a3d;color:#5aaaff}
+  .irow{display:flex;align-items:flex-start;gap:5px;font-size:11px;color:#777;margin-bottom:3px;line-height:1.4}
+  .od{width:6px;height:6px;border-radius:50%;background:#1d9e75;flex-shrink:0;margin-top:2px}
+  .cd{width:6px;height:6px;border-radius:50%;background:#e24b4a;flex-shrink:0;margin-top:2px}
+  .lnks{display:flex;gap:5px;margin-top:8px;padding-top:8px;border-top:0.5px solid #2a2d3a;flex-wrap:wrap}
+  .lb{font-size:10px;padding:3px 9px;border-radius:10px;border:0.5px solid #2a2d3a;background:transparent;cursor:pointer;color:#888;text-decoration:none;display:inline-block;transition:all .15s}
+  .lb:hover{background:#2a2d3a;color:#e8e8e8}
+
+  .mwrap{width:100%;height:540px;border-radius:12px;border:0.5px solid #2a2d3a;overflow:hidden}
+  .empty{text-align:center;padding:2rem;color:#555;font-size:14px}
+</style>
+</head>
+<body>
+<div class="header"><span style="font-size:22px">🌿</span><div><h1>Western MA Dispensaries</h1><div class="subtitle">Your local green guide · <span id="total-count">50</span> spots</div></div></div>
+<div class="stats"><div class="stat">Open now: <b id="s-open">—</b></div><div class="stat">Avg rating: <b id="s-avg">—</b></div><div class="stat">Cities: <b id="s-cities">—</b></div></div>
+<div class="controls">
+  <button class="tab-btn active" onclick="setView('list',this)">List view</button>
+  <button class="tab-btn" onclick="setView('map',this)">Map view</button>
+  <input class="search" type="text" placeholder="Search name, city..." oninput="applyFilters()" id="search">
+  <span class="cnt" id="count"></span>
+</div>
+<div class="filters" id="filters"></div>
+<div id="list-view"></div>
+<div id="map-view" style="display:none"><div class="mwrap" id="map"></div></div>
+
+<script>
+const D=[
+  {name:"Cannabis Connection",addr:"40 Westfield Industrial Park Rd",city:"Westfield",phone:"(413) 752-2269",rating:4.8,lat:42.1418,lng:-72.7294,hours:["Mon–Sat: 9am–9pm","Sun: 10am–8pm"],web:"https://cannabisconnectiondispensary.com",delivery:false},
+  {name:"Pioneer Valley Trading Co.",addr:"475 Southampton Rd",city:"Westfield",phone:"(413) 440-9631",rating:4.6,lat:42.1559,lng:-72.7253,hours:["Daily: 9am–9pm"],web:"https://pioneervalleytradingco.com/menu/westfield"
+,delivery:false},
+  {name:"Cannabis Huts Dispensary",addr:"1010 Union St",city:"West Springfield",phone:"(413) 381-4414",rating:5.0,lat:42.0966,lng:-72.6068,hours:["Daily: 8am–10pm"],web:"https://cannabishuts.com",delivery:false},
+  {name:"Fine Fettle",addr:"175 Memorial Ave",city:"West Springfield",phone:"(413) 407-2332",rating:4.6,lat:42.0965,lng:-72.5998,hours:["Mon–Sat: 9am–9pm","Sun: 10am–8pm"],web:"https://finefettle.com",delivery:false},
+  {name:"Cannabis Connection W. Spfld",addr:"1102 Riverdale St",city:"West Springfield",phone:"(413) 420-7287",rating:4.8,lat:42.1343,lng:-72.6265,hours:["Mon–Thu: 9am–9pm","Fri–Sat: 9am–10pm","Sun: 10am–8pm"],web:"https://cannabisconnectiondispensary.com",delivery:false},
+  {name:"Affinity Medical Marijuana",addr:"175 Circuit Ave",city:"West Springfield",phone:"(413) 217-1155",rating:4.8,lat:42.0924,lng:-72.6077,hours:["Mon–Sat: 10am–7pm","Sun: 11am–6pm"],web:"https://risecannabis.com/dispensaries/massachusetts/west-springfield/3542/medical-menu/",delivery:false},
+  {name:"Insa Cannabis Springfield",addr:"1200 W Columbus Ave",city:"Springfield",phone:"(877) 500-4672",rating:4.6,lat:42.0964,lng:-72.5879,hours:["Daily: 8am–11pm"],web:"https://insa.com",delivery:false},
+  {name:"Primus Cannabis",addr:"666 State St",city:"Springfield",phone:"(413) 390-2199",rating:4.4,lat:42.1107,lng:-72.5703,hours:["Mon–Sat: 9am–11pm","Sun: 10am–11pm"],web:"https://primuscanna.com",delivery:false},
+  {name:"Liberty Cannabis Springfield",addr:"1300 Boston Rd",city:"Springfield",phone:"(413) 750-9699",rating:4.6,lat:42.1413,lng:-72.5006,hours:["Mon–Thu: 9am–8pm","Fri–Sat: 9am–10pm","Sun: 10am–5pm"],web:"https://libertycannabis.com",delivery:false},
+  {name:"Zaza Green",addr:"311 Page Blvd Suite 2",city:"Springfield",phone:"(413) 363-0893",rating:4.7,lat:42.1342,lng:-72.5609,hours:["Mon–Sat: 9am–11pm","Sun: 10am–11pm"],web:"https://zazagreen.com",delivery:false},
+  {name:"6 Brick's Cannabis",addr:"1860 Main St",city:"Springfield",phone:"(413) 285-8115",rating:4.8,lat:42.1060,lng:-72.5976,hours:["Daily: 8am–10pm"],web:"https://6bricks.com",delivery:false},
+  {name:"EMBR Dispensary Springfield",addr:"461 Boston Rd",city:"Springfield",phone:"(413) 465-2490",rating:4.7,lat:42.1309,lng:-72.5265,hours:["Mon–Sat: 8am–10:45pm","Sun: 9am–10pm"],web:"https://embr.us",delivery:false},
+  {name:"Solurge Dispensary",addr:"650 Beaulieu St",city:"Holyoke",phone:"(413) 374-1982",rating:4.8,lat:42.1917,lng:-72.6176,hours:["Daily: 8am–11pm"],web:"https://www.solurge.com",delivery:false},
+  {name:"Holyoke Cannabis",addr:"380 Dwight St",city:"Holyoke",phone:"(413) 322-8611",rating:4.8,lat:42.2047,lng:-72.6047,hours:["Daily: 8am–11pm"],web:"https://holyokecannabis.com",delivery:false},
+  {name:"Canna Provisions Holyoke",addr:"380 Dwight St Unit #1",city:"Holyoke",phone:"(413) 650-2500",rating:4.6,lat:42.2050,lng:-72.6044,hours:["Daily: 8am–11pm"],web:"https://cannaprovisions.com",delivery:false},
+  {name:"Dazed Cannabis Holyoke",addr:"56 Jackson St",city:"Holyoke",phone:"(917) 232-9869",rating:4.7,lat:42.1958,lng:-72.6122,hours:["Daily: 8am–11pm"],web:"https://dazed.fun",delivery:false},
+  {name:"Rolling J's",addr:"604 Main St",city:"Holyoke",phone:"(413) 322-9188",rating:4.8,lat:42.1951,lng:-72.6117,hours:["Daily: 8am–11pm"],web:"https://rollingjscannabis.com",delivery:false},
+  {name:"BlazeXpress (Delivery)",addr:"85 Sargeant St",city:"Holyoke",phone:"(413) 412-8525",rating:5.0,lat:42.1990,lng:-72.6111,hours:["Daily: 9am–9pm"],web:"https://blazexpress.com",delivery:true},
+  {name:"Theory Wellness",addr:"672 Fuller Rd",city:"Chicopee",phone:"(413) 595-2011",rating:4.4,lat:42.1607,lng:-72.5536,hours:["Mon–Sat: 9am–9pm","Sun: 10am–9pm"],web:"https://theorywellness.org",delivery:false},
+  {name:"Mass Alternative Care",addr:"1247 E Main St",city:"Chicopee",phone:"(413) 377-6240",rating:4.6,lat:42.1581,lng:-72.5426,hours:["Mon–Sat: 9am–9pm","Sun: 10am–9pm"],web:"https://massaltcare.com",delivery:false},
+  {name:"JimBuddy's Rec Shop",addr:"1269 Memorial Dr",city:"Chicopee",phone:"(413) 331-2954",rating:4.7,lat:42.1923,lng:-72.5755,hours:["Mon–Sat: 9am–9pm","Sun: 10am–9pm"],web:"https://jimbuddysrecshop.com/",delivery:false},
+  {name:"NETA",addr:"118 Conz St",city:"Northampton",phone:"(617) 377-7408",rating:4.6,lat:42.3126,lng:-72.6253,hours:["Daily: 8am–9pm"],web:"https://netacare.org",delivery:false},
+  {name:"EMBR Dispensary Northampton",addr:"144 King St",city:"Northampton",phone:"(413) 390-9333",rating:4.9,lat:42.3248,lng:-72.6334,hours:["Mon–Wed: 8am–9pm","Thu: 9am–9pm","Fri–Sat: 8am–10pm","Sun: 8am–9pm"],web:"https://embr.us",delivery:false},
+  {name:"Resinate Northampton",addr:"110 Pleasant St",city:"Northampton",phone:"(508) 476-6290",rating:4.8,lat:42.3187,lng:-72.6279,hours:["Mon–Wed: 9am–8pm","Thu–Sat: 9am–10pm","Sun: 10am–6pm"],web:"https://iresinate.com",delivery:false},
+  {name:"Balagan Cannabis",addr:"235 Main St",city:"Northampton",phone:"(413) 727-8361",rating:4.8,lat:42.3180,lng:-72.6326,hours:["Daily: 10am–8pm"],web:"https://balagancannabis.com",delivery:false},
+  {name:"Turning Leaf",addr:"261 King St",city:"Northampton",phone:"(413) 889-5323",rating:4.8,lat:42.3314,lng:-72.6339,hours:["Daily: 10am–8pm"],web:"https://turningleafcannabis.com",delivery:false},
+  {name:"Honey Northampton",addr:"41 Strong Ave",city:"Northampton",phone:"(413) 203-6611",rating:4.7,lat:42.3191,lng:-72.6275,hours:["Mon–Thu: 10am–9pm","Fri–Sat: 10am–10pm","Sun: 10am–8pm"],web:"https://honeynorthampton.com/",delivery:false},
+  {name:"Fyre Ants Dispensary",addr:"102 Northampton St",city:"Easthampton",phone:"(413) 203-1648",rating:4.8,lat:42.2788,lng:-72.6725,hours:["Mon–Thu: 8am–9pm","Fri–Sat: 8am–10pm","Sun: 8am–9pm"],web:"https://fyreants.com",delivery:false},
+  {name:"Ounce Club",addr:" 17 East St",city:"Easthampton",phone:"413) 529-5214",rating:4.8,lat:42.2788,lng:-72.6725,hours:["Mon–Thu: 8am–9pm","Fri–Sat: 8am–10pm","Sun:   8am–9pm"],web:"https://ounceclubdispensary.com/",delivery:false},
+  {name:"Liberty Cannabis Easthampton",addr:"155 Northampton St",city:"Easthampton",phone:"(413) 893-9839",rating:4.7,lat:42.2819,lng:-72.6682,hours:["Mon–Wed: 10am–6pm","Thu–Sat: 10am–7pm","Sun: 10am–5pm"],web:"https://libertycannabis.com",delivery:false},
+  {name:"Fyre Ants",addr:"102 Northampton St Easthampton, MA 01027",city:"Easthampton",phone:"(413) 203-1648",rating:4.5,lat:42.2733,lng:-72.6622,hours:["Daily: 9am–11pm"],web:"https://fyreants.com/shop/",delivery:false},
+  {name:"Insa Cannabis Easthampton",addr:"122 Pleasant St Suite 144",city:"Easthampton",phone:"(413) 265-1164",rating:4.5,lat:42.2733,lng:-72.6622,hours:["Daily: 9am–11pm"],web:"https://insa.com",delivery:false},
+  {name:"Dreamer Cannabis",addr:"15 College Hwy",city:"Southampton",phone:"(413) 203-5004",rating:4.7,lat:42.2520,lng:-72.6980,hours:["Daily: 9am–8pm"],web:"https://www.dreamercannabis.com",delivery:false},
+  {name:"Heirloom Collective Hadley",addr:"457 Russell St",city:"Hadley",phone:"(413) 540-6602",rating:4.5,lat:42.3642,lng:-72.5372,hours:["Daily: 10am–8pm"],web:"https://theheirloomcollective.us",delivery:false},
+  {name:"Altai Alternative Care",addr:"267 Amherst Rd #2",city:"Sunderland",phone:"(413) 397-3072",rating:5.0,lat:42.4523,lng:-72.5644,hours:["Mon–Wed: 10am–8pm","Thu–Sat: 10am–9pm","Sun: 10am–6pm"],web:"https://altaialternative.com/",delivery:false},
+  {name:"RISE Dispensary Amherst",addr:"169 Meadow St",city:"Amherst",phone:"(413) 825-9770",rating:4.7,lat:42.4087,lng:-72.5395,hours:["Check website for hours"],web:"https://risecannabis.com",delivery:false},
+  {name:"253 Farmacy Amherst",addr:"328 College St",city:"Amherst",phone:"(413) 230-3063",rating:4.7,lat:42.3733,lng:-72.5028,hours:["Daily: 10am–8pm"],web:"https://253farmacy.com/amherst-dispensary/",delivery:false},
+  {name:"Clear Sky Cannabis",addr:"20 George Hannum St",city:"Belchertown",phone:"(888) 540-2343",rating:4.8,lat:42.2911,lng:-72.4100,hours:["Daily: 10am–8pm"],web:"https://shopclearsky.com/locations/belchertown-dispensary/",delivery:false},
+  {name:"Silver Therapeutics",addr:"1235 Thorndike St",city:"Palmer",phone:"(413) 289-9901",rating:4.8,lat:42.1774,lng:-72.3187,hours:["Mon–Sat: 10am–8pm","Sun: 10am–7pm"],web:"https://silver-therapeutics.com",delivery:false},
+  {name:"Canna Retreat",addr:"1240 Park St",city:"Palmer",phone:"(413) 289-6079",rating:4.8,lat:42.1521,lng:-72.3152,hours:["Mon–Sat: 10am–8pm","Sun: 10am–7pm"],web:"https://cannaretreat.com/",delivery:false},
+  {name:"Dazed Cannabis Monson",addr:"399 Boston Rd",city:"Monson",phone:"(917) 232-9869",rating:4.8,lat:42.1539,lng:-72.3719,hours:["Daily: 8am–11pm"],web:"https://dazed.fun",delivery:false},
+  {name:"Smokey Leaf",addr:"49 Bank Row",city:"Greenfield",phone:"(413) 376-5250",rating:4.9,lat:42.5866,lng:-72.6006,hours:["Mon–Sat: 9am–10pm","Sun: 10am–8pm"],web:"https://smokeyleaf.net",delivery:false},
+  {name:"Patriot Care Greenfield",addr:"7 Legion Ave",city:"Greenfield",phone:"(413) 203-6131",rating:4.5,lat:42.5892,lng:-72.6042,hours:["Mon–Sat: 10am–8pm","Sun: 11am–6pm"],web:"https://www.patriotcare.org/stores/massachusetts/greenfield",delivery:false},
+  {name:"Green River Cannabis Co.",addr:"398 Deerfield St",city:"Greenfield",phone:"(413) 325-8954",rating:4.9,lat:42.5719,lng:-72.5946,hours:["Mon–Sat: 10am–7pm","Sun: 11am–6pm"],web:"https://greenrivercannabiscompany.com",delivery:false},
+  {name:"Cheech & Chong's Dispensoria",addr:"51 Davis St",city:"Greenfield",phone:"(413) 259-8623",rating:4.4,lat:42.5895,lng:-72.6017,hours:["Mon–Sat: 8:30am–9pm","Sun: 12pm–5pm"],web:"https://cheechandchongscannabis.com/stores/massachusetts/greenfield/",delivery:false},
+  {name:"253 Farmacy Turners Falls",addr:"253 Millers Falls Rd",city:"Turners Falls",phone:"(413) 863-5670",rating:4.8,lat:42.5902,lng:-72.5273,hours:["Mon–Sat: 9am–8pm","Sun: 10am–7pm"],web:"https://253farmacy.com/",delivery:false},
+  {name:"Heirloom Collective Bernardston",addr:"87 Northfield Rd",city:"Bernardston",phone:"(413) 834-7211",rating:4.7,lat:42.6697,lng:-72.5387,hours:["Daily: 10am–7:55pm"],web:"https://theheirloomcollective.us",delivery:false},
+  {name:"Leaf Joy Dispensary",addr:"1 Main Rd",city:"Gill",phone:"(413) 863-5142",rating:4.6,lat:42.6136,lng:-72.5482,hours:["Mon–Tue: 9am–10pm","Wed–Sat: 9am–11pm","Sun: 10am–10pm"],web:"https://leafjoyma.com/",delivery:false},
+];
+
+let filtered=[...D],activeCity='All',mapInst=null,markers=[];
+const cities=['All',...[...new Set(D.map(d=>d.city))].sort()];
+
+function isOpen(hours){
+  const now=new Date(),day=now.getDay(),cur=now.getHours()*60+now.getMinutes();
+  const line=hours.find(l=>{
+    const lc=l.toLowerCase();
+    if(lc.startsWith('daily'))return true;
+    if(day>=1&&day<=5&&lc.startsWith('mon–fri'))return true;
+    if(day>=1&&day<=4&&lc.startsWith('mon–thu'))return true;
+    if(day>=1&&day<=3&&lc.startsWith('mon–wed'))return true;
+    if(day===4&&lc.startsWith('thu'))return true;
+    if((day===5||day===6)&&lc.startsWith('fri–sat'))return true;
+    if(day===6&&lc.includes('sat'))return true;
+    if(day===0&&lc.startsWith('sun'))return true;
+    if(day>=1&&day<=2&&lc.startsWith('mon–tue'))return true;
+    if(day>=3&&day<=6&&lc.startsWith('wed–sat'))return true;
+    if(day>=1&&day<=5&&lc.startsWith('mon'))return true;
+    return false;
+  })||hours[0];
+  const m=line.match(/(\d+)(?::(\d+))?\s*(am|pm)\s*[–-]\s*(\d+)(?::(\d+))?\s*(am|pm)/i);
+  if(!m)return null;
+  let sh=parseInt(m[1]),sm=parseInt(m[2]||0),sa=m[3].toLowerCase();
+  let eh=parseInt(m[4]),em=parseInt(m[5]||0),ea=m[6].toLowerCase();
+  if(sa==='pm'&&sh!==12)sh+=12;if(sa==='am'&&sh===12)sh=0;
+  if(ea==='pm'&&eh!==12)eh+=12;if(ea==='am'&&eh===12)eh=0;
+  return cur>=sh*60+sm&&cur<eh*60+em;
+}
+
+function stars(r){let s='';for(let i=1;i<=5;i++)s+=`<span class="st">${i<=Math.floor(r)?'★':'☆'}</span>`;return s;}
+
+function buildFilters(){
+  document.getElementById('filters').innerHTML=cities.map(c=>`<button class="fp${c==='All'?' active':''}" onclick="setCity('${c}',this)">${c}</button>`).join('');
+}
+function setCity(c,btn){
+  activeCity=c;
+  document.querySelectorAll('.fp').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+function applyFilters(){
+  const q=document.getElementById('search').value.toLowerCase();
+  filtered=D.filter(d=>(activeCity==='All'||d.city===activeCity)&&(!q||d.name.toLowerCase().includes(q)||d.city.toLowerCase().includes(q)||d.addr.toLowerCase().includes(q)));
+  renderList();
+  if(mapInst)updateMarkers();
+}
+function updateStats(){
+  document.getElementById('s-open').textContent=D.filter(d=>isOpen(d.hours)===true).length;
+  document.getElementById('s-avg').textContent=(D.reduce((s,d)=>s+d.rating,0)/D.length).toFixed(1)+' ⭐';
+  document.getElementById('s-cities').textContent=cities.length-1;
+  document.getElementById('total-count').textContent=D.length;
+}
+function renderList(){
+  const el=document.getElementById('list-view');
+  document.getElementById('count').textContent=filtered.length+' spots';
+  if(!filtered.length){el.innerHTML='<div class="empty">No results found.</div>';return;}
+  el.innerHTML='<div class="grid">'+filtered.map(d=>{
+    const open=isOpen(d.hours);
+    const statusHtml=open===null?'':open
+      ?`<div class="irow"><span class="od"></span><span style="color:#4dcc9a">Open now</span></div>`
+      :`<div class="irow"><span class="cd"></span><span style="color:#e24b4a">Closed now</span></div>`;
+    return `<div class="card">
+      <div class="ctop"><div class="cname">${d.name}</div><div class="rat">${stars(d.rating)} ${d.rating}</div></div>
+      <div class="badges"><span class="tag">${d.city}</span>${d.delivery?'<span class="tag tag-d">Delivery</span>':''}</div>
+      <div class="irow"><span>📍</span><span>${d.addr}, ${d.city}, MA</span></div>
+      <div class="irow"><span>📞</span><span>${d.phone}</span></div>
+      ${statusHtml}
+      <div class="irow" style="flex-direction:column;gap:1px">${d.hours.map(h=>'<span>'+h+'</span>').join('')}</div>
+      <div class="lnks">
+        <a class="lb" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(d.addr+' '+d.city+' MA')}" target="_blank">Directions</a>
+        ${d.web?`<a class="lb" href="${d.web}" target="_blank">Website</a>`:''}
+        <a class="lb" href="tel:${d.phone.replace(/\D/g,'')}">Call</a>
+      </div>
+    </div>`;
+  }).join('')+'</div>';
+}
+function initMap(){
+  if(mapInst)return;
+  mapInst=L.map('map').setView([42.38,-72.57],10);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(mapInst);
+  updateMarkers();
+}
+function updateMarkers(){
+  markers.forEach(m=>m.remove());markers=[];
+  filtered.forEach(d=>{
+    const open=isOpen(d.hours);
+    const color=open===false?'#e24b4a':open===true?'#1d9e75':'#888';
+    const icon=L.divIcon({html:`<div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.5)"></div>`,className:'',iconSize:[12,12],iconAnchor:[6,6]});
+    const mk=L.marker([d.lat,d.lng],{icon}).addTo(mapInst);
+    mk.bindPopup(`<b style="font-size:12px">${d.name}</b><br><span style="font-size:11px">${d.addr}, ${d.city}<br>${d.phone}</span>${d.web?`<br><a href="${d.web}" target="_blank" style="font-size:11px">Website</a>`:''}`);
+    markers.push(mk);
+  });
+}
+function setView(v,btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('list-view').style.display=v==='list'?'block':'none';
+  document.getElementById('map-view').style.display=v==='map'?'block':'none';
+  if(v==='map'){setTimeout(()=>{initMap();mapInst.invalidateSize();},50);}
+}
+buildFilters();updateStats();renderList();
+</script>
+</body>
+</html>
